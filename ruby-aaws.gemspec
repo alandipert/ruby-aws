@@ -49,7 +49,7 @@ Gem::Specification.new do |s|
      "lib/amazon/aws/search.rb",
      "lib/amazon/aws/shoppingcart.rb",
      "lib/amazon/locale.rb",
-     "ruby-aws.spec",
+     "ruby-aaws.gemspec",
      "setup.rb",
      "test/setup.rb",
      "test/tc_amazon.rb",
