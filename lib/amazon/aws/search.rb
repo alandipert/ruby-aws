@@ -42,7 +42,7 @@ module Amazon
 
 	attr_reader :conn, :config, :locale, :query, :user_agent
 	attr_writer :cache
-	attr_accessor :encoding
+	attr_accessor :encoding, :cache_dir
 
 	# This method is used to generate an AWS search request object.
 	#
@@ -69,7 +69,7 @@ module Amazon
 	#  req = Request.new( '0Y44V8FAFNM119CX4TR2', 'calibanorg-20' )
 	#
 	def initialize(key_id=nil, associate=nil, locale=nil, cache=nil,
-		       user_agent=USER_AGENT)
+		       cache_dir=nil, user_agent=USER_AGENT)
 
 	  @config ||= Amazon::Config.new
 
@@ -79,6 +79,7 @@ module Amazon
 
 	  key_id ||= @config['key_id']
 	  cache = @config['cache'] if cache.nil?
+	  @cache_dir = cache_dir.nil? ? @config['cache_dir'] : cache_dir
 
 	  # Take locale from config file if no locale was passed to method.
 	  #
@@ -95,7 +96,7 @@ module Amazon
 	  @tag	      = associate || @config['associate'] || DEF_ASSOC[locale]
 	  @user_agent = user_agent
 	  @cache      = unless cache == 'false' || cache == false
-			  Amazon::AWS::Cache.new( @config['cache_dir'] )
+			  Amazon::AWS::Cache.new( @cache_dir )
 			else
 			  nil
 			end
@@ -146,7 +147,7 @@ module Amazon
 	#
 	def cache  # :nodoc:
 	  if @cache == true
-	    @cache = Amazon::AWS::Cache.new( @config['cache_dir'] )
+	    @cache = Amazon::AWS::Cache.new( @cache_dir )
 	  else
 	    @cache
 	  end
