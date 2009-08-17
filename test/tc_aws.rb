@@ -1,4 +1,4 @@
-# $Id: tc_aws.rb,v 1.11 2008/10/02 21:33:58 ianmacd Exp $
+# $Id: tc_aws.rb,v 1.12 2009/06/14 00:29:28 ianmacd Exp $
 #
 
 require 'test/unit'
@@ -13,7 +13,7 @@ class TestAWSBasics < AWSTest
   CACHE_PATH = File.join( Dir.tmpdir, 'aws_cache' )
 
   def test_version
-    v = '1.8.6'
+    v = '1.8.7'
     assert( RUBY_VERSION >= v, "Ruby version is lower than #{v}." )
   end
 

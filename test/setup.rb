@@ -1,4 +1,4 @@
-# $Id: setup.rb,v 1.3 2008/06/22 11:50:23 ianmacd Exp $
+# $Id: setup.rb,v 1.5 2009/06/14 00:28:48 ianmacd Exp $
 #
 
 # Attempt to load Ruby/AWS using RubyGems.
@@ -24,8 +24,11 @@ class AWSTest < Test::Unit::TestCase
     @req = Request.new
     @req.locale = 'uk'
     @req.cache = false
+    @req.encoding = 'utf-8'
   end
 
-  undef_method :default_test
+  # The default_test method needs to be removed before Ruby 1.9.0.
+  #
+  undef_method :default_test if method_defined? :default_test
  
 end

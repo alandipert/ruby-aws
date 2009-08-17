@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 #
-# $Id: item_lookup1,v 1.5 2008/04/11 19:24:24 ianmacd Exp $
+# $Id: item_lookup1,v 1.6 2009/02/20 00:13:38 ianmacd Exp $
 
 require 'amazon/aws'
 require 'amazon/aws/search'
@@ -8,16 +8,17 @@ require 'amazon/aws/search'
 include Amazon::AWS
 include Amazon::AWS::Search
 
-# Example of a batch operation, using the ASIN as the shared ID.
+# Example of a batch operation.
 #
 # The MerchantId restriction is to ensure that we retrieve only items that
 # are for sale by Amazon. This is important when we later want to retrieve the
 # availability status.
 #
 il = ItemLookup.new( 'ASIN', { 'ItemId' => 'B000AE4QEC',
-			       'MerchantId' => 'Amazon' },
-		             { 'ItemId' => 'B000051WBE',
 			       'MerchantId' => 'Amazon' } )
+il2 = ItemLookup.new( 'ASIN', { 'ItemId' => 'B000051WBE',
+				'MerchantId' => 'Amazon' } )
+il.batch( il2 )
 
 # You can have multiple response groups.
 #

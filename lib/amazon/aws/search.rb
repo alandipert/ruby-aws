@@ -1,4 +1,4 @@
-# $Id: search.rb,v 1.26 2008/09/21 22:17:32 ianmacd Exp $
+# $Id: search.rb,v 1.43 2009/06/14 22:28:27 ianmacd Exp $
 #
 
 module Amazon
@@ -8,6 +8,7 @@ module Amazon
     require 'amazon/aws'
     require 'net/http'
     require 'rexml/document'
+    require 'openssl'
 
     # Load this library with:
     #
@@ -27,15 +28,31 @@ module Amazon
 	#
 	class LocaleError < Amazon::AWS::Error::AWSError; end
 
-	attr_reader :conn, :locale, :user_agent
+	# Do we have support for the SHA-256 Secure Hash Algorithm?
+	#
+	# Note that Module#constants returns Strings in Ruby 1.8 and Symbols
+	# in 1.9.
+	#
+	DIGEST_SUPPORT = OpenSSL::Digest.constants.include?( 'SHA256' ) ||
+			 OpenSSL::Digest.constants.include?( :SHA256 )
+
+	# Requests are authenticated using the SHA-256 Secure Hash Algorithm.
+	#
+	DIGEST = OpenSSL::Digest::Digest.new( 'sha256' ) if DIGEST_SUPPORT
+
+	attr_reader :conn, :config, :locale, :query, :user_agent
 	attr_writer :cache
+	attr_accessor :encoding
 
 	# This method is used to generate an AWS search request object.
 	#
 	# _key_id_ is your AWS {access key
-	# ID}[https://aws-portal.amazon.com/gp/aws/developer/registration/index.html],
+	# ID}[https://aws-portal.amazon.com/gp/aws/developer/registration/index.html].
+	# Note that your secret key, used for signing requests, can be
+	# specified only in your <tt>~/.amazonrc</tt> configuration file.
+	#
 	# _associate_ is your
-	# Associates[http://docs.amazonwebservices.com/AWSECommerceService/2008-04-07/GSG/BecominganAssociate.html]
+	# Associates[http://docs.amazonwebservices.com/AWSECommerceService/2009-03-31/GSG/BecominganAssociate.html]
 	# tag (if any), _locale_ is the locale in which you which to work
 	# (*us* for amazon.com[http://www.amazon.com/], *uk* for
 	# amazon.co.uk[http://www.amazon.co.uk], etc.), _cache_ is whether or
@@ -52,7 +69,7 @@ module Amazon
 	#  req = Request.new( '0Y44V8FAFNM119CX4TR2', 'calibanorg-20' )
 	#
 	def initialize(key_id=nil, associate=nil, locale=nil, cache=nil,
-		       cache_dir=nil, user_agent=USER_AGENT)
+		       user_agent=USER_AGENT)
 
 	  @config ||= Amazon::Config.new
 
@@ -62,7 +79,6 @@ module Amazon
 
 	  key_id ||= @config['key_id']
 	  cache = @config['cache'] if cache.nil?
-	  cache_dir ||= @config['cache_dir']
 
 	  # Take locale from config file if no locale was passed to method.
 	  #
@@ -79,10 +95,17 @@ module Amazon
 	  @tag	      = associate || @config['associate'] || DEF_ASSOC[locale]
 	  @user_agent = user_agent
 	  @cache      = unless cache == 'false' || cache == false
-			  Amazon::AWS::Cache.new( cache_dir )
+			  Amazon::AWS::Cache.new( @config['cache_dir'] )
 			else
 			  nil
 			end
+
+	  # Set the following two variables from the config file. Will be
+	  # *nil* if not present in config file.
+	  #
+	  @api	      = @config['api']
+	  @encoding   = @config['encoding']
+
 	  self.locale = locale
 	end
 
@@ -100,6 +123,10 @@ module Amazon
 	  #
 	  if @tag == Amazon::AWS::DEF_ASSOC[old_locale]
 	    @tag = Amazon::AWS::DEF_ASSOC[@locale]
+	  end
+
+	  if @config.key?( @locale ) && @config[@locale].key?( 'associate' )
+	    @tag = @config[@locale]['associate']
 	  end
 
 	  # We must now set up a new HTTP connection to the correct server for
@@ -167,19 +194,76 @@ module Amazon
 	# _xml_ is the XML node below which to search.
 	#
 	def error_check(xml)
-	  if xml = xml.elements['Errors/Error']
+	  if ! xml.nil? && xml = xml.elements['Errors/Error']
 	    raise Amazon::AWS::Error.exception( xml )
 	  end
 	end
 	private :error_check
 
 
-	# Perform a search of the AWS database. _operation_ is one of the
-	# objects subclassed from _Operation_, such as _ItemSearch_,
-	# _ItemLookup_, etc. It may also be a _MultipleOperation_ object.
+	# Add a timestamp to a request object's query string.
 	#
-	# _response_group_ will apply to all both operations contained in
-	# _operation_, if _operation_ is a _MultipleOperation_ object.
+	def timestamp
+	  @query << '&Timestamp=%s' %
+	    [ Amazon.url_encode(
+		Time.now.utc.strftime( '%Y-%m-%dT%H:%M:%SZ' ) ) ]
+	end
+	private :timestamp
+
+
+	# Add a signature to a request object's query string. This implicitly
+	# also adds a timestamp.
+	#
+	def sign
+	  return false unless DIGEST_SUPPORT
+
+	  timestamp
+	  params = @query[1..-1].split( '&' ).sort.join( '&' )
+  
+	  sign_str = "GET\n%s\n%s\n%s" % [ ENDPOINT[@locale].host,
+					   ENDPOINT[@locale].path,
+					   params ]
+
+	  Amazon.dprintf( 'Calculating SHA256 HMAC of "%s"...', sign_str )
+
+	  hmac = OpenSSL::HMAC.digest( DIGEST,
+				       @config['secret_key_id'],
+				       sign_str )
+	  Amazon.dprintf( 'SHA256 HMAC is "%s"', hmac.inspect )
+
+	  base64_hmac = [ hmac ].pack( 'm' ).chomp
+	  Amazon.dprintf( 'Base64-encoded HMAC is "%s".', base64_hmac )
+
+	  signature = Amazon.url_encode( base64_hmac )
+
+	  params << '&Signature=%s' % [ signature ]
+	  @query = '?' + params
+
+	  true
+	end
+
+
+	# Perform a search of the AWS database, returning an AWSObject.
+	#
+	# _operation_ is an object of a subclass of _Operation_, such as
+	# _ItemSearch_, _ItemLookup_, etc. It may also be a _MultipleOperation_
+	# object.
+	#
+	# _response_group_, if supplied, is a set of one or more response
+	# groups to use in combination with _operation_ for the purpose of
+	# determining which data sets AWS should return.
+	#
+	# If _response_group_ is *nil*, Ruby/AWS will instead use the response
+	# groups specified by the _@response_group_ attribute of _operation_.
+	# That is now the preferred way of specifying response groups to use
+	# with a given operation. The _response_group_ parameter may later be
+	# removed from this method altogether.
+	#
+	# If _response_group_ is given, it will apply to all sub-operations of
+	# _operation_, if _operation_ is of class MultipleOperation. To use a
+	# different set of response groups for each sub-operation, you should
+	# assign to the _@response_group_ attribute of each of them before
+	# instantiating a MultipleOperation to combine them.
 	#
 	# _nr_pages_ is the number of results pages to return. It defaults to
 	# <b>1</b>. If a higher number is given, pages 1 to _nr_pages_ will be
@@ -189,25 +273,41 @@ module Amazon
 	# The maximum page number that can be returned for each type of
 	# operation is documented in the AWS Developer's Guide:
 	#
-	# http://docs.amazonwebservices.com/AWSECommerceService/2008-08-19/DG/index.html?CHAP_MakingRequestsandUnderstandingResponses.html#PagingThroughResults
+	# http://docs.amazonwebservices.com/AWSECommerceService/2009-03-31/DG/index.html?MaximumNumberofPages.html
 	#
 	# Note that _ItemLookup_ operations can use three separate pagination
 	# parameters. Ruby/AWS, however, uses _OfferPage_ for the purposes of
 	# returning multiple pages.
 	#
 	# If operation is of class _MultipleOperation_, the operations
-	# combined within will return only the first page, regardless of
+	# specified within will return only the first page, regardless of
 	# whether a higher number of pages is requested.
 	#
-	def search(operation, response_group, nr_pages=1)
-	  q_params = Amazon::AWS::SERVICE.
-		       merge( { 'AWSAccessKeyId' => @key_id,
-				'AssociateTag'   => @tag } ).
-		       merge( operation.params ).
-		       merge( response_group.params )
+	# If a block is passed to this method, each successive page of results
+	# will be yielded to the block.
+	#
+	def search(operation, response_group=nil, nr_pages=1)
+	  response_group ||=
+	    operation.response_group || ResponseGroup.new( :Large )
 
-	  query = Amazon::AWS.assemble_query( q_params )
-	  page = Amazon::AWS.get_page( self, query )
+	  parameters = Amazon::AWS::SERVICE.
+			 merge( { 'AWSAccessKeyId' => @key_id,
+				  'AssociateTag'   => @tag } ).
+			 merge( operation.params ).
+			 merge( response_group.params )
+
+	  # Check to see whether a particular version of the API has been
+	  # requested. If so, overwrite Version with the new value.
+	  #
+	  parameters.merge!( { 'Version' => @api } ) if @api
+
+	  @query = Amazon::AWS.assemble_query( parameters, @encoding )
+	  page = Amazon::AWS.get_page( self )
+
+	  # Ruby 1.9 needs to know that the page is UTF-8, not ASCII-8BIT.
+	  #
+	  page.force_encoding( 'utf-8' ) if RUBY_VERSION >= '1.9.0'
+
 	  doc = Document.new( page )
 
 	  # Some errors occur at the very top level of the XML. For example,
@@ -215,6 +315,19 @@ module Amazon
 	  # with user code, but occurred during debugging of this library.
 	  #
 	  error_check( doc )
+
+	  # Another possible error results in a document containing nothing
+	  # but <Result>Internal Error</Result>. This occurs when a specific
+	  # version of the AWS API is requested, in combination with an
+	  # operation that did not yet exist in that version of the API.
+	  #
+	  # For example:
+	  #
+	  # http://ecs.amazonaws.com/onca/xml?AWSAccessKeyId=foo&Operation=VehicleSearch&Year=2008&ResponseGroup=VehicleMakes&Service=AWSECommerceService&Version=2008-03-03
+	  #
+	  if xml = doc.elements['Result']
+	    raise Amazon::AWS::Error::AWSError, xml.text
+	  end
 
 	  # Fundamental errors happen at the OperationRequest level. For
 	  # example, if an invalid AWSAccessKeyId is used.
@@ -293,9 +406,15 @@ module Amazon
 	  # Iterate over pages 2 and higher, but go no higher than MAX_PAGES.
 	  #
 	  2.upto( nr_pages < max_pages ? nr_pages : max_pages ) do |page_nr|
-	    query = Amazon::AWS.assemble_query(
-		      q_params.merge( { page_parameter => page_nr } ) )
-	    page = Amazon::AWS.get_page( self, query )
+	    @query = Amazon::AWS.assemble_query(
+		      parameters.merge( { page_parameter => page_nr } ),
+		      @encoding)
+	    page = Amazon::AWS.get_page( self )
+
+	    # Ruby 1.9 needs to know that the page is UTF-8, not ASCII-8BIT.
+	    #
+	    page.force_encoding( 'utf-8' ) if RUBY_VERSION >= '1.9.0'
+
 	    doc = Document.new( page )
 
 	    # Check for errors.
@@ -305,7 +424,7 @@ module Amazon
 
 	    # Create a new AWS object and walk the XML response tree.
 	    #
-	    aws = AWS::AWSObject.new
+	    aws = AWS::AWSObject.new( operation )
 	    aws.walk( doc )
 
 	    # When dealing with multiple pages, we return not just an

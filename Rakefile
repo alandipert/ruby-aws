@@ -1,4 +1,4 @@
-# $Id: Rakefile,v 1.11 2008/10/03 13:24:30 ianmacd Exp $
+# $Id: Rakefile,v 1.15 2009/06/15 12:07:14 ianmacd Exp $
 #
 
 require 'rubygems'
@@ -10,7 +10,7 @@ spec = Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
   s.name = 'ruby-aaws'
   s.rubyforge_project = 'Ruby/(A)AWS'
-  s.version = '0.4.4'
+  s.version = '0.7.0'
   s.author = 'Ian Macdonald'
   s.email =  'ian@caliban.org'
   s.summary = 'Ruby interface to Amazon Associates Web Services'
@@ -19,8 +19,8 @@ spec = Gem::Specification.new do |s|
   s.require_path = 'lib'
   s.test_files = Dir.glob( 'test/*.rb' )
   s.has_rdoc = true
-  s.extra_rdoc_files = %w[ COPYING NEWS README README.rdoc ]
-  s.required_ruby_version = '>= 1.8.6'
+  s.extra_rdoc_files = %w[ COPYING INSTALL NEWS README README.rdoc ]
+  s.required_ruby_version = '>= 1.8.7'
 #  s.autorequire = 'amazon/aws/search'
 end
 

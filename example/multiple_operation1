@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 #
-# $Id: multiple_operation1,v 1.1 2008/04/11 15:00:56 ianmacd Exp $
+# $Id: multiple_operation1,v 1.2 2009/02/20 00:25:59 ianmacd Exp $
 
 require 'amazon/aws/search'
 
@@ -14,9 +14,10 @@ include Amazon::AWS::Search
 # availability status.
 #
 il = ItemLookup.new( 'ASIN', { 'ItemId' => 'B000AE4QEC',
-			       'MerchantId' => 'Amazon' },
-		             { 'ItemId' => 'B000051WBE',
 			       'MerchantId' => 'Amazon' } )
+il2 = ItemLookup.new( 'ASIN', { 'ItemId' => 'B000051WBE',
+				'MerchantId' => 'Amazon' } )
+il.batch( il2 )
 is = ItemSearch.new( 'Books', { 'Title' => 'Ruby' } )
 
 mo = MultipleOperation.new( is, il )

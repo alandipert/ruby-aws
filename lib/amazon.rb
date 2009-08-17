@@ -1,4 +1,4 @@
-# $Id: amazon.rb,v 1.25 2008/10/03 09:35:37 ianmacd Exp $
+# $Id: amazon.rb,v 1.29 2009/06/08 15:20:11 ianmacd Exp $
 #
 
 module Amazon
@@ -8,6 +8,7 @@ module Amazon
   class AmazonError < StandardError; end
 
   NAME = 'Ruby/Amazon'
+
   @@config = {}
 
   # Prints debugging messages and works like printf, except that it prints
@@ -22,28 +23,31 @@ module Amazon
   #
   def Amazon.url_encode(string)
 
-    # Shamelessly plagiarised from Wakou Aoyama's cgi.rb.
+    # Shamelessly plagiarised from Wakou Aoyama's cgi.rb, but then altered
+    # slightly to please AWS.
     #
-    string.gsub( /([^ a-zA-Z0-9_.-]+)/n ) do
-      '%' + $1.unpack( 'H2' * $1.size ).join( '%' ).upcase
-    end.tr( ' ', '+' )
+    string.gsub( /([^a-zA-Z0-9_.~-]+)/ ) do
+      '%' + $1.unpack( 'H2' * $1.bytesize ).join( '%' ).upcase
+    end
   end
 
 
   # Convert a string from CamelCase to ruby_case.
   #
-  def Amazon.uncamelise(str)
+  def Amazon.uncamelise(string)
     # Avoid modifying by reference.
     #
-    str = str.dup
+    string = string.dup
 
     # Don't mess with string if all caps.
     #
-    str.gsub!( /(.+?)(([A-Z][a-z]|[A-Z]+$))/, "\\1_\\2" ) if str =~ /[a-z]/
+    if string =~ /[a-z]/
+      string.gsub!( /(.+?)(([A-Z][a-z]|[A-Z]+$))/, "\\1_\\2" )
+    end
 
     # Convert to lower case.
     #
-    str.downcase
+    string.downcase
   end
 
 
@@ -63,6 +67,7 @@ module Amazon
     # and are readable.
     #
     def initialize(config_str=nil)
+      locale = nil
 
       if config_str
 
@@ -105,16 +110,24 @@ module Amazon
 	if readable
 
 	  Amazon.dprintf( 'Opening %s ...', cf ) if config_class == File
-    
+
 	  config_class.open( cf ) { |f| lines = f.readlines }.each do |line|
 	    line.chomp!
-    
+
 	    # Skip comments and blank lines.
 	    #
 	    next if line =~ /^(#|$)/
-    
+
 	    Amazon.dprintf( 'Read: %s', line )
-    
+
+	    # Determine whether we're entering the subsection of a new locale.
+	    #
+	    if match = line.match( /^\[(\w+)\]$/ )
+	      locale = match[1]
+	      Amazon.dprintf( "Config locale is now '%s'.", locale )
+	      next
+	    end
+
 	    # Store these, because we'll probably find a use for these later.
 	    #
 	    begin
@@ -125,9 +138,14 @@ module Amazon
 	    rescue NoMethodError, ConfigError
 	      raise ConfigError, "bad config line: #{line}"
 	    end
-    
-	    self[key] = val
-    
+
+	    if locale && locale != 'global'
+	      self[locale] ||= {}
+	      self[locale][key] = val
+	    else
+	      self[key] = val
+	    end
+
 	  end
 	end
 

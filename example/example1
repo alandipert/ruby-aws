@@ -1,6 +1,6 @@
 #!/usr/bin/ruby -w
 #
-# $Id: example1,v 1.4 2008/04/28 10:24:56 ianmacd Exp $
+# $Id: example1,v 1.5 2009/06/02 01:09:51 ianmacd Exp $
 
 require 'amazon/aws'
 require 'amazon/aws/search'
@@ -44,7 +44,7 @@ response = request.search( is, rg, :ALL_PAGES ) do |page|
 #     end
 #   end
 # end
- printf( "Page %d had unique request ID %s.\n",
+  printf( "Page %d had unique request ID %s.\n",
 	  page_nr += 1,
 	  page.item_search_response[0].operation_request[0].request_id )
   printf( "Page %d contained %d result(s).\n",
@@ -56,7 +56,7 @@ end
 #
 nr_items = 0
 response.each do |page|
-    page.item_search_response[0].items.each do |item_set|
+  page.item_search_response[0].items.each do |item_set|
       nr_items += item_set.item.size
     end
   end

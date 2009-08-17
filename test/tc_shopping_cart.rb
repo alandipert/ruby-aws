@@ -1,4 +1,4 @@
-# $Id: tc_shopping_cart.rb,v 1.5 2008/07/05 14:18:03 ianmacd Exp $
+# $Id: tc_shopping_cart.rb,v 1.6 2009/03/27 14:00:22 ianmacd Exp $
 #
 
 require 'test/unit'
@@ -23,7 +23,7 @@ class TestShoppingCart < AWSTest
     # Create a cart with three items. The last two are given as multiple
     # single-element hashes. MergeCart is false.
     #
-    cart.cart_create( :ASIN, 'B00151HZA6', 3, false,
+    cart.cart_create( :ASIN, 'B001CB0UJC', 3, false,
 		      { 'B000WC4AH0' => 2 },
 		      { 'B0006L16N8' => 1 } )
     items = cart.items
@@ -31,7 +31,7 @@ class TestShoppingCart < AWSTest
     # Check that the quantities match what we expect.
     #
     assert_equal( 3, items.size )
-    item = items.find { |item| item.asin == 'B00151HZA6'  }
+    item = items.find { |item| item.asin == 'B001CB0UJC'  }
     assert_equal( '3', item.quantity[0] )
     item = items.find { |item| item.asin == 'B000WC4AH0'  }
     assert_equal( '2', item.quantity[0] )
@@ -70,7 +70,7 @@ class TestShoppingCart < AWSTest
     # hash. MergeCart is true. Cart#create is used as an alias of
     # Cart#cart_create.
     #
-    cart.create( :ASIN, 'B00151HZA6', 1, true,
+    cart.create( :ASIN, 'B001CB0UJC', 1, true,
 		 { 'B000WC4AH0' => 2,
 		   'B0006L16N8' => 3 } )
     items = cart.items
@@ -78,7 +78,7 @@ class TestShoppingCart < AWSTest
     # Check that the quantities match what we expect.
     #
     assert_equal( 3, items.size )
-    item = items.find { |item| item.asin == 'B00151HZA6'  }
+    item = items.find { |item| item.asin == 'B001CB0UJC'  }
     assert_equal( '1', item.quantity[0] )
     item = items.find { |item| item.asin == 'B000WC4AH0'  }
     assert_equal( '2', item.quantity[0] )
@@ -125,10 +125,10 @@ class TestShoppingCart < AWSTest
 
     # Modify an item quantity.
     #
-    cart.cart_modify( :ASIN, 'B00151HZA6', 2 )
+    cart.cart_modify( :ASIN, 'B001CB0UJC', 2 )
     items = cart.items
     assert_equal( 8, items.size )
-    item = items.find { |item| item.asin == 'B00151HZA6'  }
+    item = items.find { |item| item.asin == 'B001CB0UJC'  }
     assert_equal( '2', item.quantity[0] )
 
     # Move item to 'Save For Later' area.
@@ -174,7 +174,7 @@ class TestShoppingCart < AWSTest
 
     # Move another item to the 'Save For Later' area.
     #
-    cart.cart_modify( :ASIN, 'B00151HZA6', 2, true )
+    cart.cart_modify( :ASIN, 'B001CB0UJC', 2, true )
     items = cart.items
     assert_equal( 6, items.size )
     sfl_items = cart.saved_for_later_items
@@ -182,7 +182,7 @@ class TestShoppingCart < AWSTest
 
     # Now remove that item while it's still in the 'Save For Later' area.
     #
-    cart.cart_modify( :ASIN, 'B00151HZA6', 0 )
+    cart.cart_modify( :ASIN, 'B001CB0UJC', 0 )
     items = cart.items
     assert_equal( 6, items.size )
     sfl_items = cart.saved_for_later_items
