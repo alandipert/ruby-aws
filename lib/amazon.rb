@@ -1,5 +1,7 @@
 # $Id: amazon.rb,v 1.25 2008/10/03 09:35:37 ianmacd Exp $
 #
+#
+require 'cgi'
 
 module Amazon
   
